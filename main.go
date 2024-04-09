@@ -18,17 +18,16 @@ type ScrapedItem struct {
 
 func main() {
 
-	// Tracking execution time
+	//Tracking execution time
 	startTime := time.Now()
-	//Defining base url to scrape
+	//Base url to scrape
 	baseURL := "books.toscrape.com"
 	//Concatenate protocol to base URL
 	startingURL := "https://" + baseURL
 	//Init slice of strings (could allow more than one URL, easy to change)
 	allowedUrls := []string{baseURL}
-	//Colly’s main entity is a Collector object.
-	//Collector manages the network communication and is responsible for the execution of the attached callbacks while a collector job is running.
-	//To work with colly, you have to initialize a Collector:
+
+	//initialize a Collector:
 	c := colly.NewCollector(
 		//Spread out allowed urls entries as parameters
 		//AllowedDomains is a domain whitelist
@@ -36,7 +35,7 @@ func main() {
 		//Enabling on Asynchronous Requests (need to set limits after this outwith the collector instance, also need to set Wait() to ensure all requests are finished)
 		colly.Async(true),
 	)
-
+	//Setting limits for the collector
 	c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 2})
 
 	//OnRequest – runs when the program sends a request to the server.
@@ -62,20 +61,20 @@ func main() {
 	//Selector to go through sidebar links for each category
 	c.OnHTML("#default > div > div > div > aside > div.side_categories > ul > li > ul > li > a", func(e *colly.HTMLElement) {
 		categoryLink := e.Attr("href")
-		// visit the linked page to scrape books within the category
+		//Visit the linked page to scrape books within the category
 		e.Request.Visit(e.Request.AbsoluteURL(categoryLink))
 	})
 
-	// /OnHTML – runs when the program accesses the HTML resource that was served to it.
-	// looking for product_pod class (this has child elements that include the data we need for the first page)
+	//OnHTML – runs when the program accesses the HTML resource that was served to it.
+	//Looking for product_pod class (this has child elements that include the data we need for the first page)
 
 	c.OnHTML(".product_pod", func(e *colly.HTMLElement) {
 		title := e.ChildAttr("div img", "alt")
 		price := e.ChildText("p.price_color")
 		availability := e.ChildText("p.instock.availability")
-		// Get the category from the URL (assuming it follows the pattern "category/{category_name}/index.html")
+		//Get the category from the URL (assuming it follows the pattern "category/{category_name}/index.html")
 		fmt.Printf("Title: %s\nPrice: %s\nAvailability: %s\n", title, price, availability)
-		// Add the data to the slice
+		//Add the data to the slice
 		item := ScrapedItem{Title: title, Price: price, Availability: availability}
 		scrapedData = append(scrapedData, item)
 	})
@@ -88,16 +87,15 @@ func main() {
 
 	//Wait for all requests to finish
 	c.Wait()
-	//Call function to save JSON
+	//Save JSON
 	saveJSON("scraped_data.json", scrapedData)
-	//finish executing
+	//Finish executing
 	endTime := time.Now()
-	//calculate final time
+	//Calculate final time
 	duration := endTime.Sub(startTime)
 	fmt.Printf("Total time taken: %s\n", duration)
 }
 
-// saveJSON writes the provided data to a JSON file
 func saveJSON(filename string, data interface{}) {
 	file, err := os.Create(filename)
 	if err != nil {
