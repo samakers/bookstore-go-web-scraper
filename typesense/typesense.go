@@ -11,25 +11,25 @@ import (
 func typesensehandler() {
 	client := typesense.NewClient(
 		typesense.WithServer("http://localhost:8108"),
-		typesense.WithAPIKey("xyz"))
+		typesense.WithAPIKey("Hu52dwsas2AdxdE"))
 
 	schema := &api.CollectionSchema{
-		Name: "companies",
+		Name: "books",
 		Fields: []api.Field{
 			{
-				Name: "company_name",
+				Name: "title",
 				Type: "string",
 			},
 			{
-				Name: "num_employees",
-				Type: "int32",
+				Name: "price",
+				Type: "string",
 			},
 			{
-				Name: "country",
+				Name: "availability",
 				Type: "string",
 			},
 		},
-		DefaultSortingField: pointer.String("num_employees"),
+		DefaultSortingField: pointer.String("title"),
 	}
 
 	client.Collections().Create(context.Background(), schema)

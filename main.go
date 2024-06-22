@@ -3,7 +3,9 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
+	"web-crawler/db"
 	"web-crawler/scraper"
 )
 
@@ -17,7 +19,18 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	// database.StoreInDB(data)
+	//Connect to db and store data
+	// db.ConnectToDB()
+	//Define and ensure I am passing in correct type here
+	dbManager, err := db.ConnectToDB()
+	if err != nil {
+		log.Fatalf("Failed to connect to DB: %v", err)
+	}
+
+	// Assuming items is your slice of scraped items
+	dbManager.StoreInDB(data)
+
+	//Pass data to secondary data store (typesense)
 
 	// client := typesense.CreateTypesenseClient()
 	// typesense.IndexInTypesense(client, data)
