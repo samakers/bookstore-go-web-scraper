@@ -22,3 +22,8 @@ go.work
 
 # ENV file 
 .env
+
+# Docker
+.dockerignore
+docker-compose.yml
+docker-compose.override.yml

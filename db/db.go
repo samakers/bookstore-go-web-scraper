@@ -55,7 +55,8 @@ func (manager *DBManager) StoreInDB(items []scraper.ScrapedItem) {
 	sqlStatement := `
 	INSERT INTO books (title, price, availability)
 	VALUES ($1, $2, $3)
-	RETURNING id`
+	ON CONFLICT ON CONSTRAINT unique_book_title
+	DO NOTHING;`
 	for _, item := range items {
 		_, err := manager.db.Exec(sqlStatement, item.Title, item.Price, item.Availability)
 		if err != nil {

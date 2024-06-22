@@ -19,6 +19,5 @@ func DataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Convert the data to JSON and write it to the response
 	fmt.Fprint(w, data)
 }
