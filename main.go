@@ -1,114 +1,55 @@
+// main.go
 package main
 
 import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"time"
-
-	"github.com/gocolly/colly"
+	"web-crawler/db"
+	"web-crawler/scraper"
 )
-
-type ScrapedItem struct {
-	Title        string
-	Price        string
-	Availability string
-}
 
 func main() {
 
 	//Tracking execution time
 	startTime := time.Now()
-	//Base url to scrape
-	baseURL := "books.toscrape.com"
-	//Concatenate protocol to base URL
-	startingURL := "https://" + baseURL
-	//Init slice of strings (could allow more than one URL, easy to change)
-	allowedUrls := []string{baseURL}
 
-	//initialize a Collector:
-	c := colly.NewCollector(
-		//Spread out allowed urls entries as parameters
-		//AllowedDomains is a domain whitelist
-		colly.AllowedDomains(allowedUrls...),
-		//Enabling on Asynchronous Requests (need to set limits after this outwith the collector instance, also need to set Wait() to ensure all requests are finished)
-		colly.Async(true),
-	)
-	//Setting limits for the collector
-	c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 2})
+	done := make(chan bool)
 
-	//OnRequest – runs when the program sends a request to the server.
-	c.OnRequest(func(r *colly.Request) {
-		log.Println("Visiting", r.URL, "Response pending...")
-	})
-
-	//OnError – runs when or if we receive an error from the server. In Colly, this is any response that isn’t in the 200’s for server codes.
-	c.OnError(func(r *colly.Response, err error) {
-		if visitErr := c.Visit(startingURL); visitErr != nil {
-			log.Println("Something went wrong:", visitErr)
-			log.Println("Broken link:", r.Request.URL)
-			os.Exit(1)
+	// Scrape website in a separate goroutine
+	var data []scraper.ScrapedItem
+	var err error
+	go func() {
+		data, err = scraper.ScrapeWebsite("https://books.toscrape.com")
+		if err != nil {
+			log.Fatalf("Failed to scrape website: %v", err)
 		}
-	})
 
-	//OnResponse – runs when the program receives a response from the server.
-	c.OnResponse(func(r *colly.Response) {
-		log.Println("Visited", r.Request.URL, "Status Code:", r.StatusCode)
-	})
+		// Connect to DB and store data
+		dbManager, err := db.ConnectToDB()
+		if err != nil {
+			log.Fatalf("Failed to connect to DB: %v", err)
+		}
 
-	var scrapedData []ScrapedItem
-	//Selector to go through sidebar links for each category
-	c.OnHTML("#default > div > div > div > aside > div.side_categories > ul > li > ul > li > a", func(e *colly.HTMLElement) {
-		categoryLink := e.Attr("href")
-		//Visit the linked page to scrape books within the category
-		e.Request.Visit(e.Request.AbsoluteURL(categoryLink))
-	})
+		dbManager.StoreInDB(data)
 
-	//OnHTML – runs when the program accesses the HTML resource that was served to it.
-	//Looking for product_pod class (this has child elements that include the data we need for the first page)
+		// Signal completion on the channel
+		done <- true
+	}()
 
-	c.OnHTML(".product_pod", func(e *colly.HTMLElement) {
-		title := e.ChildAttr("div img", "alt")
-		price := e.ChildText("p.price_color")
-		availability := e.ChildText("p.instock.availability")
-		//Get the category from the URL (assuming it follows the pattern "category/{category_name}/index.html")
-		fmt.Printf("Title: %s\nPrice: %s\nAvailability: %s\n", title, price, availability)
-		//Add the data to the slice
-		item := ScrapedItem{Title: title, Price: price, Availability: availability}
-		scrapedData = append(scrapedData, item)
-	})
+	// Wait for db operation to complete
+	<-done
 
-	log.Println("Starting crawl at: ", startingURL)
-
-	if err := c.Visit(startingURL); err != nil {
-		log.Println("Error on start of crawl: ", err)
-	}
-
-	//Wait for all requests to finish
-	c.Wait()
-	//Save JSON
-	saveJSON("scraped_data.json", scrapedData)
-	//Finish executing
 	endTime := time.Now()
-	//Calculate final time
 	duration := endTime.Sub(startTime)
-	fmt.Printf("Total time taken: %s\n", duration)
-}
 
-func saveJSON(filename string, data interface{}) {
-	file, err := os.Create(filename)
+	// fmt.Printf("Data: %+v\n", data)
+	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
-		log.Fatal("Error creating JSON file:", err)
+		log.Fatalf("Error occurred while marshaling data: %v", err)
 	}
+	fmt.Println(string(jsonData))
+	fmt.Printf("Total time taken: %s\n", duration)
 
-	defer file.Close()
-
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-
-	if err := encoder.Encode(data); err != nil {
-		log.Fatal("Error encoding JSON:", err)
-	}
-	log.Println("JSON data saved to", filename)
 }
