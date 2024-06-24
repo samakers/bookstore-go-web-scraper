@@ -2,6 +2,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -37,12 +38,18 @@ func main() {
 		done <- true
 	}()
 
-	// Wait for the database operation to complete
+	// Wait for db operation to complete
 	<-done
 
 	endTime := time.Now()
 	duration := endTime.Sub(startTime)
 
-	fmt.Println("Data:", data)
+	// fmt.Printf("Data: %+v\n", data)
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		log.Fatalf("Error occurred while marshaling data: %v", err)
+	}
+	fmt.Println(string(jsonData))
 	fmt.Printf("Total time taken: %s\n", duration)
+
 }

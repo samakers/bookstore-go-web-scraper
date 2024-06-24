@@ -1,20 +1,18 @@
 version: '3.8'
-
 services:
   postgres:
     image: postgres:latest
-    restart: always
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    networks:
+      - scraper-net
 
   web-crawler:
-    build: .
+    image: web-crawler-web-crawler:latest  # Specify your image here
     environment:
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
@@ -23,7 +21,26 @@ services:
       DB_NAME: ${DB_NAME}
     depends_on:
       - postgres
+    networks:
+      - scraper-net
+
+  gadmin:
+    image: dpage/pgadmin4
+    container_name: scraper-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - scraper-net
 
 volumes:
   postgres-data:
     driver: local
+
+networks:
+  scraper-net:
+    driver: bridge
